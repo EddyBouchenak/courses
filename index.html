@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Courses</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="Application de liste de courses simple et rapide.">
+</head>
+<body>
+
+    <!-- En-tête fixe -->
+    <header class="app-header">
+        <div class="header-top">
+            <h1>Mes Courses</h1>
+            <button id="theme-toggle" aria-label="Changer le thème">🌙</button>
+        </div>
+        
+        <!-- Zone de recherche -->
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="🔍 Ajouter un article (ex: Pommes)..." autocomplete="off">
+            <div id="autocomplete-list" class="autocomplete-items hidden"></div>
+        </div>
+    </header>
+
+    <main class="app-content">
+        
+        <!-- Section: Ma Liste -->
+        <section id="shopping-list-section">
+            <div class="section-header">
+                <h2>À acheter <span id="count-to-buy">(0)</span></h2>
+            </div>
+            <div id="list-to-buy" class="item-list">
+                <!-- Les articles à acheter s'afficheront ici -->
+                <div class="empty-state">Ta liste est vide. Ajoute des articles !</div>
+            </div>
+
+            <div class="section-header">
+                <h2>Déjà acheté <span id="count-bought">(0)</span></h2>
+                <button id="toggle-bought-btn" class="text-btn">Masquer</button>
+            </div>
+            <div id="list-bought" class="item-list bought-list">
+                <!-- Les articles achetés s'afficheront ici -->
+            </div>
+        </section>
+
+        <hr class="divider">
+
+        <!-- Section: Catalogue / Rayons -->
+        <section id="catalog-section">
+            <h2>Parcourir les rayons</h2>
+            <div id="categories-grid" class="categories-grid">
+                <!-- Les catégories s'afficheront ici -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Actions globales -->
+    <footer class="app-footer">
+        <button id="reset-btn" class="danger-btn">🗑️ Tout réinitialiser</button>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
