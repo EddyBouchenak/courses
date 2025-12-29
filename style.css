@@ -305,11 +305,14 @@ h2 {
 
 /* --- Quantité --- */
 .item-quantity {
-    width: 60px;
-    padding: 6px;
+    width: 80px;
+    /* Wider for "250 gr" */
+    padding: 8px;
+    /* Larger tap area */
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    /* 16px to prevent iOS zoom */
     text-align: center;
     background-color: var(--bg-color);
     color: var(--text-color);

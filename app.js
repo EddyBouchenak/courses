@@ -615,6 +615,7 @@ function createItemElement(item) {
                placeholder="Qte" 
                value="${item.quantity || ''}" 
                aria-label="Quantité pour ${item.nom}"
+               enterkeyhint="done"
         >
     `;
 
