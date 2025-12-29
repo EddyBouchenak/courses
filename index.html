@@ -3,64 +3,641 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mes Courses</title>
-    <link rel="stylesheet" href="style.css">
-    <meta name="description" content="Application de liste de courses simple et rapide.">
+    <title>Mes Courses Optimisées</title>
+    <meta name="description" content="Liste de courses intelligente avec gestion des rayons et quantités.">
+    <style>
+        /* --- 1. Variables & Thèmes --- */
+        :root {
+            --primary-color: #4CAF50;
+            --primary-dark: #388E3C;
+            --bg-color: #f9f9f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
+            --danger-color: #ff5252;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --radius: 16px;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --border-color: #333333;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        /* --- 2. Reset & Base --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding-bottom: 100px; /* Espace footer */
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- 3. Header --- */
+        .app-header {
+            background-color: var(--card-bg);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+            border-bottom-left-radius: var(--radius);
+            border-bottom-right-radius: var(--radius);
+        }
+
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        h1 { font-size: 1.4rem; font-weight: 800; color: var(--primary-color); letter-spacing: -0.5px; }
+        #theme-toggle { background: none; border: none; font-size: 1.4rem; cursor: pointer; padding: 5px; }
+
+        /* --- 4. Recherche --- */
+        .search-container { position: relative; }
+        #search-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid transparent;
+            background-color: var(--bg-color);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            color: var(--text-color);
+            transition: all 0.2s;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+            user-select: text; /* Permettre la sélection texte ici */
+        }
+        #search-input:focus { outline: none; border-color: var(--primary-color); background-color: var(--card-bg); }
+
+        .autocomplete-items {
+            position: absolute;
+            top: 105%; left: 0; right: 0;
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 99;
+            border: 1px solid var(--border-color);
+        }
+        .autocomplete-item { padding: 12px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; justify-content: space-between; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item:hover { background-color: var(--bg-color); }
+        .hidden { display: none; }
+
+        /* --- 5. Contenu Principal --- */
+        .app-content { padding: 1rem; max-width: 600px; margin: 0 auto; }
+        
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0 0.5rem 0; }
+        h2 { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+        
+        /* NOUVEAU: En-tête de rayon */
+        .list-group-header {
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            text-transform: uppercase;
+            background-color: rgba(76, 175, 80, 0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+            margin-bottom: 6px;
+            display: inline-block;
+        }
+        [data-theme="dark"] .list-group-header { background-color: rgba(76, 175, 80, 0.2); color: #81c784; }
+
+        /* --- 6. Liste des Articles (Optimisée) --- */
+        .item-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .shopping-item {
+            display: flex; align-items: center;
+            background-color: var(--card-bg);
+            padding: 10px 12px;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .shopping-item:active { transform: scale(0.98); }
+
+        /* Checkbox custom */
+        .checkbox {
+            width: 22px; height: 22px;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .shopping-item.bought .checkbox { background-color: var(--primary-color); border-color: var(--primary-color); }
+        .shopping-item.bought .checkbox::after { content: '✓'; color: white; font-size: 12px; font-weight: bold; }
+
+        .item-info { flex-grow: 1; min-width: 0; }
+        .item-name { font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .item-details { display: flex; gap: 6px; margin-top: 2px; }
+        .qty-badge {
+            font-size: 0.7rem; background-color: var(--primary-color); color: white;
+            padding: 1px 6px; border-radius: 4px; font-weight: 600;
+        }
+
+        .shopping-item.bought { opacity: 0.6; }
+        .shopping-item.bought .item-name { text-decoration: line-through; color: var(--text-secondary); }
+        .shopping-item.bought .qty-badge { background-color: var(--text-secondary); }
+
+        /* NOUVEAU: Contrôles de Quantité */
+        .qty-control {
+            display: flex; align-items: center;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2px;
+            margin-left: 8px;
+            height: 36px;
+        }
+        .shopping-item.bought .qty-control { display: none; } /* On cache les contrôles si acheté */
+
+        .qty-btn {
+            width: 30px; height: 30px;
+            border: none; background: transparent;
+            color: var(--primary-color);
+            font-size: 1.2rem; font-weight: bold;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .qty-btn:active { background-color: rgba(0,0,0,0.1); }
+        
+        .qty-val {
+            font-size: 0.95rem; font-weight: 700;
+            min-width: 20px; text-align: center;
+            color: var(--text-color);
+        }
+        
+        .unit-btn {
+            font-size: 0.65rem;
+            background-color: var(--border-color);
+            color: var(--text-secondary);
+            border: none; border-radius: 8px;
+            padding: 4px 6px;
+            margin: 0 4px;
+            cursor: pointer;
+            text-transform: uppercase; font-weight: 800;
+            min-width: 28px;
+        }
+
+        /* --- 7. Catalogue --- */
+        .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 10px; }
+        .category-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 15px 5px; text-align: center;
+            cursor: pointer;
+        }
+        .category-card:hover { border-color: var(--primary-color); }
+        .cat-icon { font-size: 1.8rem; display: block; margin-bottom: 5px; }
+        .cat-name { font-size: 0.8rem; font-weight: 600; display: block; line-height: 1.2; }
+
+        /* --- 8. Footer --- */
+        .app-footer {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background-color: var(--card-bg);
+            padding: 1rem; text-align: center;
+            border-top: 1px solid var(--border-color);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            display: flex; justify-content: center; gap: 20px;
+            z-index: 90;
+        }
+        .danger-btn { background: none; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 8px 20px; border-radius: 20px; font-weight: 600; cursor: pointer; }
+        .text-btn { background: none; border: none; color: var(--primary-color); font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+        
+        .hidden-visually { display: none !important; }
+        .divider { border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+        .empty-state { text-align: center; color: var(--text-secondary); padding: 2rem; font-style: italic; font-size: 0.9rem; }
+    </style>
 </head>
 <body>
 
-    <!-- En-tête fixe -->
     <header class="app-header">
         <div class="header-top">
             <h1>Mes Courses</h1>
             <button id="theme-toggle" aria-label="Changer le thème">🌙</button>
         </div>
         
-        <!-- Zone de recherche -->
         <div class="search-container">
-            <input type="text" id="search-input" placeholder="🔍 Ajouter un article (ex: Pommes)..." autocomplete="off">
+            <input type="text" id="search-input" placeholder="🔍 Ajouter (ex: Pommes)..." autocomplete="off" enterkeyhint="search">
             <div id="autocomplete-list" class="autocomplete-items hidden"></div>
         </div>
     </header>
 
     <main class="app-content">
         
-        <!-- Section: Ma Liste -->
         <section id="shopping-list-section">
             <div class="section-header">
                 <h2>À acheter <span id="count-to-buy">(0)</span></h2>
             </div>
             <div id="list-to-buy" class="item-list">
-                <!-- Les articles à acheter s'afficheront ici -->
                 <div class="empty-state">Ta liste est vide. Ajoute des articles !</div>
             </div>
 
-            <div class="section-header">
+            <div class="section-header" style="margin-top: 2.5rem;">
                 <h2>Déjà acheté <span id="count-bought">(0)</span></h2>
                 <button id="toggle-bought-btn" class="text-btn">Masquer</button>
             </div>
             <div id="list-bought" class="item-list bought-list">
-                <!-- Les articles achetés s'afficheront ici -->
-            </div>
+                </div>
         </section>
 
         <hr class="divider">
 
-        <!-- Section: Catalogue / Rayons -->
         <section id="catalog-section">
             <h2>Parcourir les rayons</h2>
-            <div id="categories-grid" class="categories-grid">
-                <!-- Les catégories s'afficheront ici -->
-            </div>
+            <div id="categories-grid" class="categories-grid"></div>
         </section>
 
     </main>
 
-    <!-- Actions globales -->
     <footer class="app-footer">
-        <button id="reset-btn" class="danger-btn">🗑️ Tout réinitialiser</button>
+        <button id="reset-btn" class="danger-btn">🗑️ Tout vider</button>
     </footer>
 
-    <script src="app.js"></script>
+    <script>
+        /**
+         * Application Courses Optimisée
+         * Gestion intelligente des quantités et regroupement par rayons.
+         */
+
+        // --- 1. Données (Base de connaissance) ---
+        const categories = [
+            { id: 'fruits', nom: 'Fruits & Légumes', icon: '🍎' },
+            { id: 'viandes', nom: 'Viandes & Poissons', icon: '🥩' },
+            { id: 'frais', nom: 'Frais & Crèmerie', icon: '🧀' },
+            { id: 'epicerie', nom: 'Épicerie', icon: '🍝' },
+            { id: 'boissons', nom: 'Boissons', icon: '🧃' },
+            { id: 'hygiene', nom: 'Hygiène & Beauté', icon: '🧼' },
+            { id: 'entretien', nom: 'Maison', icon: '🧹' },
+            { id: 'divers', nom: 'Divers', icon: '💡' }
+        ];
+
+        // Liste compressée pour l'exemple (la version complète est trop longue, mais expandable)
+        const baseDefaultItems = [
+            { id: 'abricots', nom: 'Abricots', cat: 'fruits' }, { id: 'ail', nom: 'Ail', cat: 'fruits' },
+            { id: 'avocats', nom: 'Avocats', cat: 'fruits' }, { id: 'bananes', nom: 'Bananes', cat: 'fruits' },
+            { id: 'carottes', nom: 'Carottes', cat: 'fruits' }, { id: 'citrons', nom: 'Citrons', cat: 'fruits' },
+            { id: 'courgettes', nom: 'Courgettes', cat: 'fruits' }, { id: 'oignons', nom: 'Oignons', cat: 'fruits' },
+            { id: 'pommes', nom: 'Pommes', cat: 'fruits' }, { id: 'pommes_de_terre', nom: 'Pommes de terre', cat: 'fruits' },
+            { id: 'salade', nom: 'Salade', cat: 'fruits' }, { id: 'tomates', nom: 'Tomates', cat: 'fruits' },
+            { id: 'poulet', nom: 'Poulet', cat: 'viandes' }, { id: 'steak', nom: 'Steak', cat: 'viandes' },
+            { id: 'jambon', nom: 'Jambon', cat: 'viandes' }, { id: 'saumon', nom: 'Saumon', cat: 'viandes' },
+            { id: 'beurre', nom: 'Beurre', cat: 'frais' }, { id: 'creme', nom: 'Crème', cat: 'frais' },
+            { id: 'fromage', nom: 'Fromage', cat: 'frais' }, { id: 'lait', nom: 'Lait', cat: 'frais' },
+            { id: 'oeufs', nom: 'Oeufs', cat: 'frais' }, { id: 'yaourts', nom: 'Yaourts', cat: 'frais' },
+            { id: 'cafe', nom: 'Café', cat: 'epicerie' }, { id: 'cereales', nom: 'Céréales', cat: 'epicerie' },
+            { id: 'chocolat', nom: 'Chocolat', cat: 'epicerie' }, { id: 'confiture', nom: 'Confiture', cat: 'epicerie' },
+            { id: 'farine', nom: 'Farine', cat: 'epicerie' }, { id: 'huile', nom: 'Huile', cat: 'epicerie' },
+            { id: 'pates', nom: 'Pâtes', cat: 'epicerie' }, { id: 'riz', nom: 'Riz', cat: 'epicerie' },
+            { id: 'sel', nom: 'Sel', cat: 'epicerie' }, { id: 'sucre', nom: 'Sucre', cat: 'epicerie' },
+            { id: 'eau', nom: 'Eau', cat: 'boissons' }, { id: 'jus', nom: 'Jus de fruits', cat: 'boissons' },
+            { id: 'soda', nom: 'Soda', cat: 'boissons' }, { id: 'vin', nom: 'Vin', cat: 'boissons' },
+            { id: 'biere', nom: 'Bière', cat: 'boissons' },
+            { id: 'dentifrice', nom: 'Dentifrice', cat: 'hygiene' }, { id: 'gel_douche', nom: 'Gel douche', cat: 'hygiene' },
+            { id: 'papier_toilette', nom: 'Papier toilette', cat: 'entretien' }, { id: 'lessive', nom: 'Lessive', cat: 'entretien' },
+            { id: 'eponges', nom: 'Éponges', cat: 'entretien' }, { id: 'sacs_poubelle', nom: 'Sacs poubelle', cat: 'entretien' },
+            { id: 'piles', nom: 'Piles', cat: 'divers' }, { id: 'ampoules', nom: 'Ampoules', cat: 'divers' }
+        ];
+
+        // --- 2. État (State) ---
+        let appState = {
+            items: [],
+            hideBought: false,
+            theme: 'light',
+            customItems: []
+        };
+
+        // --- 3. Initialisation & LocalStorage ---
+        function init() {
+            loadState();
+            renderCategories();
+            renderList();
+            applyTheme();
+            setupEvents();
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('shopping_app_state_opt');
+            let savedItemsState = {};
+            let savedCustomItems = [];
+            let savedSettings = {};
+
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    savedItemsState = parsed.itemsState || {};
+                    savedCustomItems = parsed.customItems || [];
+                    savedSettings = parsed.settings || {};
+                } catch (e) { console.error("Erreur loadState", e); }
+            }
+
+            // Fusion items par défaut + custom
+            const allBaseItems = [...baseDefaultItems, ...savedCustomItems];
+
+            appState.items = allBaseItems.map(item => {
+                const state = savedItemsState[item.id] || {};
+                return {
+                    ...item,
+                    selected: state.selected || false,
+                    bought: state.bought || false,
+                    // NOUVEAU: Gestion valeur + unité
+                    qtyValue: state.qtyValue || 1,
+                    unit: state.unit || 'pcs'
+                };
+            });
+
+            appState.customItems = savedCustomItems;
+            appState.hideBought = savedSettings.hideBought || false;
+            appState.theme = savedSettings.theme || 'light';
+        }
+
+        function saveState() {
+            const itemsState = {};
+            appState.items.forEach(item => {
+                // On ne sauvegarde que si l'item est modifié
+                if (item.selected || item.bought || item.qtyValue > 1 || item.unit !== 'pcs') {
+                    itemsState[item.id] = {
+                        selected: item.selected,
+                        bought: item.bought,
+                        qtyValue: item.qtyValue,
+                        unit: item.unit
+                    };
+                }
+            });
+
+            const data = {
+                itemsState: itemsState,
+                customItems: appState.customItems,
+                settings: { hideBought: appState.hideBought, theme: appState.theme }
+            };
+            localStorage.setItem('shopping_app_state_opt', JSON.stringify(data));
+            renderList(); // Re-rendu pour mettre à jour les compteurs
+        }
+
+        // --- 4. Rendu (View) ---
+        function renderCategories() {
+            const grid = document.getElementById('categories-grid');
+            grid.innerHTML = '';
+            categories.forEach(cat => {
+                const div = document.createElement('div');
+                div.className = 'category-card';
+                div.innerHTML = `<span class="cat-icon">${cat.icon}</span><span class="cat-name">${cat.nom}</span>`;
+                div.onclick = (e) => { e.stopPropagation(); showCategoryItems(cat.id); };
+                grid.appendChild(div);
+            });
+        }
+
+        function renderList() {
+            const listToBuy = document.getElementById('list-to-buy');
+            const listBought = document.getElementById('list-bought');
+            const toggleBtn = document.getElementById('toggle-bought-btn');
+
+            listToBuy.innerHTML = '';
+            listBought.innerHTML = '';
+
+            const itemsToBuy = appState.items.filter(i => i.selected && !i.bought);
+            const itemsBought = appState.items.filter(i => i.selected && i.bought);
+
+            document.getElementById('count-to-buy').textContent = `(${itemsToBuy.length})`;
+            document.getElementById('count-bought').textContent = `(${itemsBought.length})`;
+
+            // --- Rendu "À acheter" GROUPÉ PAR RAYON ---
+            if (itemsToBuy.length === 0) {
+                listToBuy.innerHTML = '<div class="empty-state">Ta liste est vide. Ajoute des articles !</div>';
+            } else {
+                categories.forEach(cat => {
+                    // Trouver les items de ce rayon
+                    const catItems = itemsToBuy.filter(i => i.cat === cat.id);
+                    // Pour le rayon "Divers", on attrape aussi les orphelins
+                    if (cat.id === 'divers') {
+                        const knownCats = categories.map(c => c.id);
+                        const orphans = itemsToBuy.filter(i => !knownCats.includes(i.cat));
+                        catItems.push(...orphans);
+                    }
+
+                    if (catItems.length > 0) {
+                        // Header du rayon
+                        const header = document.createElement('div');
+                        header.className = 'list-group-header';
+                        header.textContent = `${cat.icon} ${cat.nom}`;
+                        listToBuy.appendChild(header);
+
+                        // Items du rayon
+                        catItems.forEach(item => listToBuy.appendChild(createItemElement(item)));
+                    }
+                });
+            }
+
+            // --- Rendu "Acheté" (Liste plate) ---
+            if (appState.hideBought) {
+                listBought.classList.add('hidden-visually');
+                toggleBtn.textContent = 'Afficher';
+            } else {
+                listBought.classList.remove('hidden-visually');
+                toggleBtn.textContent = 'Masquer';
+                itemsBought.forEach(item => listBought.appendChild(createItemElement(item)));
+            }
+        }
+
+        function createItemElement(item) {
+            const div = document.createElement('div');
+            div.className = `shopping-item ${item.bought ? 'bought' : ''}`;
+            
+            // Clic sur l'article = cocher/décocher
+            div.onclick = (e) => {
+                if (!e.target.closest('.qty-control')) toggleItemStatus(item.id);
+            };
+
+            const unitDisplay = item.unit === 'pcs' ? '' : item.unit;
+            const hasDetails = item.qtyValue > 1 || item.unit !== 'pcs';
+
+            div.innerHTML = `
+                <div class="checkbox"></div>
+                <div class="item-info">
+                    <div class="item-name">${item.nom}</div>
+                    ${hasDetails ? `<div class="item-details"><span class="qty-badge">${item.qtyValue} ${unitDisplay}</span></div>` : ''}
+                </div>
+                
+                <div class="qty-control" onclick="event.stopPropagation()">
+                    <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
+                    <span class="qty-val">${item.qtyValue}</span>
+                    <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+                    <button class="unit-btn" onclick="cycleUnit('${item.id}')">${item.unit}</button>
+                </div>
+            `;
+            return div;
+        }
+
+        // --- 5. Logique des Quantités & Actions ---
+
+        function updateQty(id, delta) {
+            const item = appState.items.find(i => i.id === id);
+            if (item) {
+                let newVal = (parseFloat(item.qtyValue) || 0) + delta;
+                if (newVal < 1) newVal = 1;
+                item.qtyValue = newVal;
+                saveState();
+            }
+        }
+
+        function cycleUnit(id) {
+            const item = appState.items.find(i => i.id === id);
+            const units = ['pcs', 'kg', 'g', 'L', 'pqt'];
+            if (item) {
+                const idx = units.indexOf(item.unit);
+                item.unit = units[(idx + 1) % units.length];
+                saveState();
+            }
+        }
+
+        function toggleItemStatus(id) {
+            const item = appState.items.find(i => i.id === id);
+            if (item) {
+                item.bought = !item.bought;
+                saveState();
+            }
+        }
+
+        // --- 6. Recherche et Ajout ---
+
+        function setupEvents() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', handleSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                 if (e.key === 'Enter') {
+                     const val = e.target.value.trim();
+                     if (val) addCustomItem(val);
+                 }
+            });
+
+            document.getElementById('toggle-bought-btn').addEventListener('click', () => {
+                appState.hideBought = !appState.hideBought;
+                saveState();
+            });
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                if(confirm("Tout vider ?")) {
+                    appState.items.forEach(i => { i.selected = false; i.bought = false; i.qtyValue = 1; i.unit = 'pcs'; });
+                    saveState();
+                }
+            });
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                appState.theme = appState.theme === 'light' ? 'dark' : 'light';
+                applyTheme();
+                saveState();
+            });
+            // Fermer autocomplete au clic dehors
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) document.getElementById('autocomplete-list').classList.add('hidden');
+            });
+        }
+
+        function handleSearch(e) {
+            const val = e.target.value.toLowerCase();
+            const list = document.getElementById('autocomplete-list');
+            list.innerHTML = '';
+
+            if (!val) { list.classList.add('hidden'); return; }
+
+            const matches = appState.items.filter(item => item.nom.toLowerCase().includes(val));
+            list.classList.remove('hidden');
+
+            if (matches.length > 0) {
+                matches.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'autocomplete-item';
+                    const status = item.selected ? (item.bought ? '✅' : '🛒') : '➕';
+                    div.innerHTML = `<span>${status} <strong>${item.nom}</strong></span>`;
+                    div.onclick = () => {
+                        selectItem(item.id);
+                        // On vide pas forcement la recherche pour permettre l'ajout rapide multiple
+                         document.getElementById('search-input').value = '';
+                         list.classList.add('hidden');
+                    };
+                    list.appendChild(div);
+                });
+            } else {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerHTML = `➕ Créer "<strong>${val}</strong>"`;
+                div.onclick = () => addCustomItem(val);
+                list.appendChild(div);
+            }
+        }
+
+        function selectItem(id) {
+            const item = appState.items.find(i => i.id === id);
+            if (item) {
+                item.selected = true;
+                item.bought = false;
+                saveState();
+            }
+        }
+
+        function addCustomItem(name) {
+            if(!name) return;
+            const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+            const newItem = {
+                id: 'custom_' + Date.now(),
+                nom: formattedName,
+                cat: 'divers',
+                selected: true,
+                bought: false,
+                qtyValue: 1,
+                unit: 'pcs'
+            };
+            appState.customItems.push(newItem);
+            appState.items.push(newItem);
+            saveState();
+            document.getElementById('search-input').value = '';
+            document.getElementById('autocomplete-list').classList.add('hidden');
+        }
+
+        function showCategoryItems(catId) {
+            // Afficher tous les items d'une catégorie dans l'autocomplete pour sélection rapide
+            const catItems = appState.items.filter(i => i.cat === catId);
+            const list = document.getElementById('autocomplete-list');
+            list.innerHTML = '';
+            list.classList.remove('hidden');
+            
+            const title = document.createElement('div');
+            title.style.padding = '8px 12px';
+            title.style.fontWeight = 'bold';
+            title.style.backgroundColor = 'var(--bg-color)';
+            title.textContent = categories.find(c => c.id === catId).nom;
+            list.appendChild(title);
+
+            catItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                const status = item.selected ? (item.bought ? '✅' : '🛒') : '➕';
+                div.innerHTML = `<span>${status} ${item.nom}</span>`;
+                div.onclick = () => {
+                    if (!item.selected) selectItem(item.id);
+                    div.innerHTML = `<span>🛒 ${item.nom}</span>`; // Feedback visuel immédiat
+                };
+                list.appendChild(div);
+            });
+        }
+
+        function applyTheme() {
+            document.documentElement.setAttribute('data-theme', appState.theme);
+            document.getElementById('theme-toggle').textContent = appState.theme === 'light' ? '🌙' : '☀️';
+        }
+
+        // Démarrage
+        init();
+    </script>
 </body>
 </html>
