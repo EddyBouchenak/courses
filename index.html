@@ -1073,13 +1073,33 @@
                 return;
             }
 
-            // Grouper par catégories
-            let text = "🛒 *Ma Liste de Courses* \n\n";
+            // Génération du lien de partage
+            // Format: ?shared=id1:qty1,id2:qty2&custom=Name1:qty1,Name2:qty2
+            const standardItems = itemsToBuy.filter(i => i.id && !i.id.startsWith('custom_'));
+            const customItems = itemsToBuy.filter(i => i.id && i.id.startsWith('custom_'));
+
+            let urlParams = new URLSearchParams();
+
+            if (standardItems.length > 0) {
+                const sharedStr = standardItems.map(i => `${i.id}:${i.qtyValue}`).join(',');
+                urlParams.set('shared', sharedStr);
+            }
+
+            if (customItems.length > 0) {
+                const customStr = customItems.map(i => `${i.nom}:${i.qtyValue}`).join(',');
+                urlParams.set('custom', customStr);
+            }
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}?${urlParams.toString()}`;
+
+            // Construction du message texte
+            let text = `🛒 *Ma Liste de Courses*\n\n`;
+            text += `🔗 *Lien pour importer la liste :*\n${shareUrl}\n\n`;
+            text += `📝 *Détails :*\n`;
 
             categories.forEach(cat => {
                 const catItems = itemsToBuy.filter(i => i.cat === cat.id);
-
-                // Pour les orphelins (catégorie 'divers' ou inconnue assignée à 'divers' lors de l'affichage)
+                // Pour les orphelins (catégorie 'divers' ou inconnue)
                 if (cat.id === 'divers') {
                     const knownCats = categories.map(c => c.id);
                     const orphans = itemsToBuy.filter(i => !knownCats.includes(i.cat));
@@ -1089,7 +1109,7 @@
                     if (combined.length > 0) {
                         text += `*${cat.nom}* :\n`;
                         combined.forEach(item => {
-                            const unitDisplay = item.unit === 'pcs' ? '' : item.unit; // Don't show 'pcs'
+                            const unitDisplay = item.unit === 'pcs' ? '' : item.unit;
                             const qty = (item.qtyValue > 1 || item.unit !== 'pcs') ? ` (${item.qtyValue} ${unitDisplay})` : '';
                             text += `- ${item.nom}${qty}\n`;
                         });
@@ -1098,7 +1118,7 @@
                 } else if (catItems.length > 0) {
                     text += `*${cat.nom}* :\n`;
                     catItems.forEach(item => {
-                        const unitDisplay = item.unit === 'pcs' ? '' : item.unit; // Don't show 'pcs'
+                        const unitDisplay = item.unit === 'pcs' ? '' : item.unit;
                         const qty = (item.qtyValue > 1 || item.unit !== 'pcs') ? ` (${item.qtyValue} ${unitDisplay})` : '';
                         text += `- ${item.nom}${qty}\n`;
                     });
@@ -1109,6 +1129,7 @@
             const shareData = {
                 title: 'Ma Liste de Courses',
                 text: text,
+                url: shareUrl
             };
 
             try {
@@ -1116,14 +1137,116 @@
                     await navigator.share(shareData);
                 } else {
                     await navigator.clipboard.writeText(text);
-                    alert("Liste copiée dans le presse-papier !");
+                    alert("Lien et liste copiés dans le presse-papier !");
                 }
             } catch (err) {
                 console.error('Erreur de partage :', err);
+                // Fallback si le partage (avec URL) échoue sur certains navigateurs
+                try {
+                    delete shareData.url;
+                    await navigator.share(shareData);
+                } catch (e2) {
+                    await navigator.clipboard.writeText(text);
+                    alert("Lien et liste copiés dans le presse-papier !");
+                }
             }
         }
 
-        init();
+        function handleSharedUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const sharedParam = params.get('shared');
+            const customParam = params.get('custom');
+            let addedCount = 0;
+
+            if (sharedParam) {
+                // Format: id:qty,id:qty
+                const shares = sharedParam.split(',');
+                shares.forEach(share => {
+                    const [id, qtyStr] = share.split(':');
+                    const qty = parseFloat(qtyStr) || 1;
+
+                    // Trouver l'item
+                    const item = appState.items.find(i => i.id === id);
+                    if (item) {
+                        item.selected = true;
+                        item.bought = false;
+                        item.qtyValue = qty;
+                        addedCount++;
+                    }
+                });
+            }
+
+            if (customParam) {
+                // Format: Name:qty,Name:qty
+                const customs = customParam.split(',');
+                customs.forEach(c => {
+                    const parts = c.split(':');
+                    // Le nom peut contenir des ':', donc on prend tout jusqu'au dernier segment si on a ajouté qty
+                    // Mais restons simple: Name:qty. Si Name a des :, ça casse. Acceptons le risque ou split last.
+                    // Pour simplifier : lastIndexOf pour split
+                    const lastColonIndex = c.lastIndexOf(':');
+                    let name, qty = 1;
+
+                    if (lastColonIndex !== -1) {
+                        const possibleQty = parseFloat(c.substring(lastColonIndex + 1));
+                        if (!isNaN(possibleQty)) {
+                            name = c.substring(0, lastColonIndex);
+                            qty = possibleQty;
+                        } else {
+                            name = c; // Pas de quantité détectée
+                        }
+                    } else {
+                        name = c;
+                    }
+
+                    if (name) {
+                        // On réutilise la logique d'ajout custom mais sans l'ID aléatoire si possible ou on laisse addCustomItem gérer
+                        // addCustomItem génère un ID unique et push.
+                        // On va adapter addCustomItem pour accepter qty ou le faire manuellement ici
+
+                        // Check if already exists (custom with same name)
+                        const existing = appState.items.find(i => i.nom.toLowerCase() === name.toLowerCase() && i.id.startsWith('custom_'));
+                        if (existing) {
+                            existing.selected = true;
+                            existing.bought = false;
+                            existing.qtyValue = qty;
+                        } else {
+                            const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
+                            const newItem = {
+                                id: 'custom_' + Date.now() + Math.random().toString(36).substr(2, 5), // Unique ID
+                                nom: formattedName,
+                                cat: 'divers',
+                                selected: true,
+                                bought: false,
+                                qtyValue: qty,
+                                unit: 'pcs'
+                            };
+                            appState.customItems.push(newItem);
+                            appState.items.push(newItem);
+                        }
+                        addedCount++;
+                    }
+                });
+            }
+
+            if (addedCount > 0) {
+                saveState();
+                // Nettoyer l'URL
+                const newUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+
+                alert(`${addedCount} articles ont été ajoutés à votre liste depuis le lien partagé !`);
+            }
+        }
+
+        function init() {
+            loadState();
+            handleSharedUrl(); // Vérifier si on vient d'un lien de partage
+            renderCategories();
+            renderList();
+            applyTheme();
+            setupEvents();
+        }
     </script>
 </body>
 
