@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mes Courses Optimisées</title>
     <meta name="description" content="Liste de courses intelligente avec gestion des rayons et quantités.">
     <style>
@@ -30,14 +30,19 @@
         }
 
         /* --- 2. Reset & Base --- */
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             padding-bottom: 100px; /* Espace footer */
             transition: background-color 0.3s, color 0.3s;
+            /* Empêche le zoom sur double tap sur iOS */
+            touch-action: manipulation; 
         }
+        /* On autorise la sélection uniquement sur les inputs */
+        *:not(input) { user-select: none; }
+
 
         /* --- 3. Header --- */
         .app-header {
@@ -93,7 +98,7 @@
         .section-header { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0 0.5rem 0; }
         h2 { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
         
-        /* NOUVEAU: En-tête de rayon */
+        /* En-tête de rayon */
         .list-group-header {
             font-size: 0.8rem;
             font-weight: 800;
@@ -169,13 +174,30 @@
             cursor: pointer;
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; /* Empêche le bouton de s'écraser */
         }
         .qty-btn:active { background-color: rgba(0,0,0,0.1); }
         
-        .qty-val {
+        /* Style pour l'input manuel de quantité */
+        /* Cache les flèches du navigateur sur les input number */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance:textfield; }
+
+        .qty-input {
+            width: 45px; /* Largeur fixe suffisante pour 3 chiffres */
+            border: none;
+            background: transparent;
+            text-align: center;
             font-size: 0.95rem; font-weight: 700;
-            min-width: 20px; text-align: center;
             color: var(--text-color);
+            padding: 0;
+            user-select: text; /* Important pour pouvoir sélectionner le chiffre */
+        }
+        .qty-input:focus {
+             outline: none;
+             background-color: rgba(0,0,0,0.05);
+             border-radius: 4px;
         }
         
         .unit-btn {
@@ -188,6 +210,7 @@
             cursor: pointer;
             text-transform: uppercase; font-weight: 800;
             min-width: 28px;
+            flex-shrink: 0;
         }
 
         /* --- 7. Catalogue --- */
@@ -269,7 +292,7 @@
     <script>
         /**
          * Application Courses Optimisée
-         * Gestion intelligente des quantités et regroupement par rayons.
+         * Gestion intelligente des quantités (saisie manuelle) et regroupement par rayons.
          */
 
         // --- 1. Données (Base de connaissance) ---
@@ -329,7 +352,7 @@
         }
 
         function loadState() {
-            const saved = localStorage.getItem('shopping_app_state_opt');
+            const saved = localStorage.getItem('shopping_app_state_v2');
             let savedItemsState = {};
             let savedCustomItems = [];
             let savedSettings = {};
@@ -352,7 +375,7 @@
                     ...item,
                     selected: state.selected || false,
                     bought: state.bought || false,
-                    // NOUVEAU: Gestion valeur + unité
+                    // Gestion valeur + unité
                     qtyValue: state.qtyValue || 1,
                     unit: state.unit || 'pcs'
                 };
@@ -366,7 +389,7 @@
         function saveState() {
             const itemsState = {};
             appState.items.forEach(item => {
-                // On ne sauvegarde que si l'item est modifié
+                // On ne sauvegarde que si l'item est pertinent
                 if (item.selected || item.bought || item.qtyValue > 1 || item.unit !== 'pcs') {
                     itemsState[item.id] = {
                         selected: item.selected,
@@ -382,7 +405,7 @@
                 customItems: appState.customItems,
                 settings: { hideBought: appState.hideBought, theme: appState.theme }
             };
-            localStorage.setItem('shopping_app_state_opt', JSON.stringify(data));
+            localStorage.setItem('shopping_app_state_v2', JSON.stringify(data));
             renderList(); // Re-rendu pour mettre à jour les compteurs
         }
 
@@ -455,12 +478,13 @@
             const div = document.createElement('div');
             div.className = `shopping-item ${item.bought ? 'bought' : ''}`;
             
-            // Clic sur l'article = cocher/décocher
+            // Clic sur l'article = cocher/décocher (sauf si on clique sur le contrôle de quantité)
             div.onclick = (e) => {
                 if (!e.target.closest('.qty-control')) toggleItemStatus(item.id);
             };
 
             const unitDisplay = item.unit === 'pcs' ? '' : item.unit;
+            // On affiche le badge si quantité > 1 OU si l'unité n'est pas "pièce" (ex: 1 kg)
             const hasDetails = item.qtyValue > 1 || item.unit !== 'pcs';
 
             div.innerHTML = `
@@ -472,7 +496,11 @@
                 
                 <div class="qty-control" onclick="event.stopPropagation()">
                     <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
-                    <span class="qty-val">${item.qtyValue}</span>
+                    
+                    <input type="number" class="qty-input" value="${item.qtyValue}" min="0.1" step="any" 
+                           onchange="setQtyManual('${item.id}', this.value)"
+                           onclick="this.select()" >
+                    
                     <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
                     <button class="unit-btn" onclick="cycleUnit('${item.id}')">${item.unit}</button>
                 </div>
@@ -482,16 +510,36 @@
 
         // --- 5. Logique des Quantités & Actions ---
 
+        // Mise à jour via boutons + et -
         function updateQty(id, delta) {
             const item = appState.items.find(i => i.id === id);
             if (item) {
                 let newVal = (parseFloat(item.qtyValue) || 0) + delta;
-                if (newVal < 1) newVal = 1;
+                // On s'assure que ça reste positif, on peut descendre à 0.5 si besoin mais > 0
+                if (newVal <= 0) newVal = 1; 
                 item.qtyValue = newVal;
                 saveState();
             }
         }
 
+        // NOUVEAU : Mise à jour manuelle via l'input textuel
+        function setQtyManual(id, valueStr) {
+             const item = appState.items.find(i => i.id === id);
+             if (item) {
+                 // Remplacement virgule par point pour parsing standard, puis conversion en nombre
+                 let newVal = parseFloat(valueStr.replace(',', '.'));
+                 
+                 // Validation : si ce n'est pas un nombre ou si c'est <= 0, on remet à 1
+                 if (isNaN(newVal) || newVal <= 0) {
+                     newVal = 1;
+                 }
+                 item.qtyValue = newVal;
+                 // saveState va re-rendre la liste, ce qui corrige visuellement l'input si la saisie était invalide
+                 saveState();
+             }
+        }
+
+        // Changement d'unité cyclique
         function cycleUnit(id) {
             const item = appState.items.find(i => i.id === id);
             const units = ['pcs', 'kg', 'g', 'L', 'pqt'];
@@ -561,7 +609,6 @@
                     div.innerHTML = `<span>${status} <strong>${item.nom}</strong></span>`;
                     div.onclick = () => {
                         selectItem(item.id);
-                        // On vide pas forcement la recherche pour permettre l'ajout rapide multiple
                          document.getElementById('search-input').value = '';
                          list.classList.add('hidden');
                     };
@@ -605,7 +652,6 @@
         }
 
         function showCategoryItems(catId) {
-            // Afficher tous les items d'une catégorie dans l'autocomplete pour sélection rapide
             const catItems = appState.items.filter(i => i.cat === catId);
             const list = document.getElementById('autocomplete-list');
             list.innerHTML = '';
@@ -625,7 +671,7 @@
                 div.innerHTML = `<span>${status} ${item.nom}</span>`;
                 div.onclick = () => {
                     if (!item.selected) selectItem(item.id);
-                    div.innerHTML = `<span>🛒 ${item.nom}</span>`; // Feedback visuel immédiat
+                    div.innerHTML = `<span>🛒 ${item.nom}</span>`;
                 };
                 list.appendChild(div);
             });
