@@ -952,13 +952,26 @@
                 appState.hideBought = !appState.hideBought;
                 saveState();
             });
-            appState.theme = appState.theme === 'light' ? 'dark' : 'light';
-            applyTheme();
-            saveState();
-        });
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-container')) document.getElementById('autocomplete-list').classList.add('hidden');
-        });
+
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                if (confirm("Tout vider ?")) {
+                    appState.items.forEach(i => { i.selected = false; i.bought = false; i.qtyValue = 1; i.unit = 'pcs'; });
+                    renderList();
+                    saveState();
+                }
+            });
+
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                appState.theme = appState.theme === 'light' ? 'dark' : 'light';
+                applyTheme();
+                saveState();
+            });
+
+            document.getElementById('share-btn').addEventListener('click', shareList);
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-container')) document.getElementById('autocomplete-list').classList.add('hidden');
+            });
         }
 
         function handleSearch(e) {
