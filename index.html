@@ -501,7 +501,7 @@
         let appState = {
             items: [],
             hideBought: false,
-            theme: 'light',
+            theme: 'dark',
             customItems: []
         };
 
@@ -544,7 +544,7 @@
 
             appState.customItems = savedCustomItems;
             appState.hideBought = savedSettings.hideBought || false;
-            appState.theme = savedSettings.theme || 'Dark';
+            appState.theme = savedSettings.theme || 'dark';
         }
 
         function saveState() {
