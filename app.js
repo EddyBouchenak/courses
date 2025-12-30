@@ -460,6 +460,7 @@ function init() {
     document.getElementById('toggle-bought-btn').addEventListener('click', toggleHideBought);
     document.getElementById('reset-btn').addEventListener('click', resetList);
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+    document.getElementById('share-btn').addEventListener('click', shareList);
 
     // Fermer l'autocomplete si on clique ailleurs
     document.addEventListener('click', (e) => {
@@ -776,6 +777,68 @@ function applyTheme() {
     document.documentElement.setAttribute('data-theme', appState.theme);
     document.getElementById('theme-toggle').textContent = appState.theme === 'light' ? '🌙' : '☀️';
 }
+
+async function shareList() {
+    const itemsToBuy = appState.items.filter(i => i.selected && !i.bought);
+
+    if (itemsToBuy.length === 0) {
+        alert("Rien à partager, ta liste est vide !");
+        return;
+    }
+
+    // Grouper par catégories
+    let text = "🛒 *Ma Liste de Courses* \n\n";
+
+    // Ordre des catégories comme défini
+    categories.forEach(cat => {
+        const catItems = itemsToBuy.filter(i => i.cat === cat.id);
+
+        // Pour les orphelins (catégorie 'divers' ou inconnue assignée à 'divers' lors de l'affichage)
+        if (cat.id === 'divers') {
+            const knownCats = categories.map(c => c.id);
+            const orphans = itemsToBuy.filter(i => !knownCats.includes(i.cat));
+            // Éviter les doublons si 'divers' contient déjà des éléments explicitement 'divers'
+            // Ici, notre logique de filtrage simple suffit si on suppose que tout item a une cat valide ou 'divers'
+            // Mais pour être sûr de tout prendre comme dans le render :
+            const trueDivers = itemsToBuy.filter(i => i.cat === 'divers');
+            // On combine orphans et trueDivers en dédoublonnant (set)
+            const combined = [...new Set([...trueDivers, ...orphans])];
+
+            if (combined.length > 0) {
+                text += `*${cat.nom}* :\n`;
+                combined.forEach(item => {
+                    const qty = (item.quantity && item.quantity.trim()) ? ` (${item.quantity})` : '';
+                    text += `- ${item.nom}${qty}\n`;
+                });
+                text += "\n";
+            }
+        } else if (catItems.length > 0) {
+            text += `*${cat.nom}* :\n`;
+            catItems.forEach(item => {
+                const qty = (item.quantity && item.quantity.trim()) ? ` (${item.quantity})` : '';
+                text += `- ${item.nom}${qty}\n`;
+            });
+            text += "\n";
+        }
+    });
+
+    const shareData = {
+        title: 'Ma Liste de Courses',
+        text: text,
+    };
+
+    try {
+        if (navigator.share) {
+            await navigator.share(shareData);
+        } else {
+            await navigator.clipboard.writeText(text);
+            alert("Liste copiée dans le presse-papier !");
+        }
+    } catch (err) {
+        console.error('Erreur de partage :', err);
+    }
+}
+
 
 // Lancement
 init();
